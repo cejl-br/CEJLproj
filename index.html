@@ -1,57 +1,896 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voxel FPS</title>
 
-    <title>Estudantes Chat</title>
+<style>
+    * {
+        box-sizing: border-box;
+    }
 
-    <link rel="stylesheet" href="style.css">
+    html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+        font-family: Arial, sans-serif;
+    }
+
+    canvas {
+        display: block;
+    }
+
+    #crosshair {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: 20px;
+        height: 20px;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    #crosshair::before,
+    #crosshair::after {
+        content: "";
+        position: absolute;
+        background: white;
+        box-shadow: 0 0 2px black;
+    }
+
+    #crosshair::before {
+        width: 20px;
+        height: 2px;
+        top: 9px;
+        left: 0;
+    }
+
+    #crosshair::after {
+        width: 2px;
+        height: 20px;
+        left: 9px;
+        top: 0;
+    }
+
+    #hud {
+        position: fixed;
+        left: 20px;
+        bottom: 20px;
+        color: white;
+        font-size: 22px;
+        font-weight: bold;
+        text-shadow: 2px 2px 3px black;
+        z-index: 10;
+    }
+
+    #weapon {
+        position: fixed;
+        right: 25px;
+        bottom: 20px;
+        color: white;
+        font-size: 24px;
+        font-weight: bold;
+        text-shadow: 2px 2px 3px black;
+        z-index: 10;
+    }
+
+    #menu {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.8);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    #menu h1 {
+        font-size: 48px;
+        margin: 0 0 15px;
+    }
+
+    #menu p {
+        font-size: 18px;
+        margin: 5px;
+    }
+
+    #hit {
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 32px;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 20;
+    }
+</style>
+
 </head>
 
 <body>
 
-    <div class="chat-container">
+<div id="menu">
+    <h1>VOXEL FPS</h1>
+    <p>Clique para jogar</p>
+    <p>WASD = andar</p>
+    <p>Mouse = mirar</p>
+    <p>Espaço = pular</p>
+    <p>Clique esquerdo = atirar</p>
+</div>
 
-        <header>
-            <h1>Estudantes Chat</h1>
-            <p>Converse com outros estudantes</p>
-        </header>
+<div id="crosshair"></div>
 
-        <main class="messages">
+<div id="hud">
+    HP: <span id="hp">100</span>
+</div>
 
-            <div class="message">
-                <strong>João</strong>
-                <p>Oi, pessoal!</p>
-                <span>10:30</span>
-            </div>
+<div id="weapon">
+    🔫 PISTOL
+</div>
 
-            <div class="message">
-                <strong>Maria</strong>
-                <p>Oi João 👋</p>
-                <span>10:31</span>
-            </div>
+<div id="hit">✕</div>
 
-        </main>
+<script>
 
-        <div class="message-input">
+const canvas = document.createElement("canvas");
+document.body.appendChild(canvas);
 
-            <input
-                type="text"
-                id="messageInput"
-                placeholder="Digite uma mensagem..."
-            >
+const ctx = canvas.getContext("2d");
 
-            <button onclick="sendMessage()">
-                Enviar
-            </button>
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
-        </div>
+window.addEventListener("resize", () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
 
-    </div>
 
-    <script src="app.js"></script>
+// ============================
+// JOGADOR
+// ============================
+
+const player = {
+    x: 0,
+    y: 1.6,
+    z: 5,
+
+    hp: 100,
+
+    speed: 0.12,
+    jump: 0,
+
+    rotX: 0,
+    rotY: 0
+};
+
+
+// ============================
+// BOTS
+// ============================
+
+const bots = [
+
+    {
+        x: 0,
+        z: -8,
+        hp: 100,
+        alive: true
+    },
+
+    {
+        x: 5,
+        z: -15,
+        hp: 100,
+        alive: true
+    },
+
+    {
+        x: -6,
+        z: -20,
+        hp: 100,
+        alive: true
+    }
+
+];
+
+
+// ============================
+// TECLADO
+// ============================
+
+const keys = {};
+
+window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+});
+
+window.addEventListener("keyup", e => {
+    keys[e.code] = false;
+});
+
+
+// ============================
+// MOUSE
+// ============================
+
+let mouseLocked = false;
+
+document.getElementById("menu").addEventListener("click", () => {
+
+    document.body.requestPointerLock();
+
+});
+
+document.addEventListener("pointerlockchange", () => {
+
+    mouseLocked =
+        document.pointerLockElement === document.body;
+
+    document.getElementById("menu").style.display =
+        mouseLocked ? "none" : "flex";
+
+});
+
+
+document.addEventListener("mousemove", e => {
+
+    if (!mouseLocked) return;
+
+    player.rotY -= e.movementX * 0.002;
+
+    player.rotX -= e.movementY * 0.002;
+
+    player.rotX =
+        Math.max(
+            -1.4,
+            Math.min(1.4, player.rotX)
+        );
+
+});
+
+
+// ============================
+// MOVIMENTO
+// ============================
+
+let velocityY = 0;
+
+function updatePlayer() {
+
+    if (!mouseLocked) return;
+
+    let forward = 0;
+    let right = 0;
+
+    if (keys["KeyW"]) forward += 1;
+    if (keys["KeyS"]) forward -= 1;
+
+    if (keys["KeyD"]) right += 1;
+    if (keys["KeyA"]) right -= 1;
+
+
+    const moving =
+        forward !== 0 || right !== 0;
+
+
+    let speed = player.speed;
+
+    if (keys["ShiftLeft"] || keys["ShiftRight"]) {
+        speed *= 1.7;
+    }
+
+
+    const sin = Math.sin(player.rotY);
+    const cos = Math.cos(player.rotY);
+
+
+    player.x +=
+        (-sin * forward + cos * right)
+        * speed;
+
+    player.z +=
+        (-cos * forward - sin * right)
+        * speed;
+
+
+    // gravidade
+
+    velocityY -= 0.015;
+
+    player.y += velocityY;
+
+
+    if (player.y < 1.6) {
+
+        player.y = 1.6;
+        velocityY = 0;
+
+    }
+
+
+    if (
+        keys["Space"] &&
+        player.y <= 1.61
+    ) {
+
+        velocityY = 0.25;
+
+        keys["Space"] = false;
+
+    }
+
+}
+
+
+// ============================
+// TIRO
+// ============================
+
+let lastShot = 0;
+
+const fireRate = 250;
+
+document.addEventListener("mousedown", e => {
+
+    if (e.button !== 0) return;
+
+    if (!mouseLocked) return;
+
+    shoot();
+
+});
+
+
+function shoot() {
+
+    const now = performance.now();
+
+    if (now - lastShot < fireRate) {
+        return;
+    }
+
+    lastShot = now;
+
+
+    // recoil
+
+    player.rotX -= 0.025;
+
+
+    // velocidade do jogador
+
+    const moving =
+        keys["KeyW"] ||
+        keys["KeyA"] ||
+        keys["KeyS"] ||
+        keys["KeyD"];
+
+
+    const running =
+        keys["ShiftLeft"] ||
+        keys["ShiftRight"];
+
+
+    let spread = 0.001;
+
+
+    if (moving) {
+        spread = 0.025;
+    }
+
+    if (running) {
+        spread = 0.07;
+    }
+
+
+    // procura o bot mais próximo
+    // que esteja aproximadamente na mira
+
+    let target = null;
+    let bestDistance = Infinity;
+
+
+    for (const bot of bots) {
+
+        if (!bot.alive) continue;
+
+
+        const dx =
+            bot.x - player.x;
+
+        const dz =
+            bot.z - player.z;
+
+
+        const distance =
+            Math.sqrt(
+                dx * dx +
+                dz * dz
+            );
+
+
+        if (distance > 50) continue;
+
+
+        const angle =
+            Math.atan2(
+                dx,
+                -dz
+            );
+
+
+        let difference =
+            normalizeAngle(
+                angle - player.rotY
+            );
+
+
+        difference =
+            Math.abs(difference);
+
+
+        const tolerance =
+            0.08 + spread;
+
+
+        if (
+            difference < tolerance &&
+            distance < bestDistance
+        ) {
+
+            target = bot;
+            bestDistance = distance;
+
+        }
+
+    }
+
+
+    if (target) {
+
+        damageBot(target);
+
+        showHit();
+
+    }
+
+}
+
+
+function normalizeAngle(angle) {
+
+    while (angle > Math.PI) {
+        angle -= Math.PI * 2;
+    }
+
+    while (angle < -Math.PI) {
+        angle += Math.PI * 2;
+    }
+
+    return angle;
+
+}
+
+
+// ============================
+// DANO
+// ============================
+
+function damageBot(bot) {
+
+    // por enquanto o tiro normal
+    // acerta o peito
+
+    const damage = 50;
+
+    bot.hp -= damage;
+
+
+    if (bot.hp <= 0) {
+
+        bot.hp = 0;
+
+        bot.alive = false;
+
+    }
+
+}
+
+
+// ============================
+// HITMARKER
+// ============================
+
+function showHit() {
+
+    const hit =
+        document.getElementById("hit");
+
+    hit.style.opacity = "1";
+
+    setTimeout(() => {
+
+        hit.style.opacity = "0";
+
+    }, 100);
+
+}
+
+
+// ============================
+// CÂMERA / DESENHO
+// ============================
+
+function projectPoint(x, y, z) {
+
+    const dx = x - player.x;
+    const dy = y - player.y;
+    const dz = z - player.z;
+
+
+    const sinY = Math.sin(player.rotY);
+    const cosY = Math.cos(player.rotY);
+
+
+    const cameraX =
+        dx * cosY - dz * sinY;
+
+    const cameraZ =
+        dx * sinY + dz * cosY;
+
+
+    const sinX = Math.sin(player.rotX);
+    const cosX = Math.cos(player.rotX);
+
+
+    const cameraY =
+        dy * cosX - cameraZ * sinX;
+
+    const finalZ =
+        dy * sinX + cameraZ * cosX;
+
+
+    if (finalZ > -0.1) {
+        return null;
+    }
+
+
+    const focal =
+        canvas.height * 0.9;
+
+
+    return {
+
+        x:
+            canvas.width / 2 +
+            cameraX / -finalZ * focal,
+
+        y:
+            canvas.height / 2 -
+            cameraY / -finalZ * focal,
+
+        depth: -finalZ
+
+    };
+
+}
+
+
+// ============================
+// DESENHAR
+// ============================
+
+function render() {
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // céu
+
+    const sky =
+        ctx.createLinearGradient(
+            0,
+            0,
+            0,
+            canvas.height
+        );
+
+    sky.addColorStop(
+        0,
+        "#65a9d8"
+    );
+
+    sky.addColorStop(
+        1,
+        "#b9d7e8"
+    );
+
+    ctx.fillStyle = sky;
+
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // chão
+
+    const horizon =
+        canvas.height / 2;
+
+    ctx.fillStyle =
+        "#527344";
+
+    ctx.fillRect(
+        0,
+        horizon,
+        canvas.width,
+        canvas.height
+    );
+
+
+    // grid voxel
+
+    drawGrid();
+
+
+    // bots
+
+    for (const bot of bots) {
+
+        if (!bot.alive) continue;
+
+        drawBot(bot);
+
+    }
+
+}
+
+
+function drawGrid() {
+
+    const gridSize = 40;
+
+    for (
+        let x = -gridSize;
+        x <= gridSize;
+        x++
+    ) {
+
+        drawWorldLine(
+            x,
+            0,
+            -gridSize,
+            x,
+            0,
+            gridSize
+        );
+
+    }
+
+
+    for (
+        let z = -gridSize;
+        z <= gridSize;
+        z++
+    ) {
+
+        drawWorldLine(
+            -gridSize,
+            0,
+            z,
+            gridSize,
+            0,
+            z
+        );
+
+    }
+
+}
+
+
+function drawWorldLine(
+    x1,
+    y1,
+    z1,
+    x2,
+    y2,
+    z2
+) {
+
+    const a =
+        projectPoint(
+            x1,
+            y1,
+            z1
+        );
+
+    const b =
+        projectPoint(
+            x2,
+            y2,
+            z2
+        );
+
+
+    if (!a || !b) return;
+
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,.12)";
+
+    ctx.lineWidth = 1;
+
+    ctx.beginPath();
+
+    ctx.moveTo(
+        a.x,
+        a.y
+    );
+
+    ctx.lineTo(
+        b.x,
+        b.y
+    );
+
+    ctx.stroke();
+
+}
+
+
+function drawBot(bot) {
+
+    const feet =
+        projectPoint(
+            bot.x,
+            0,
+            bot.z
+        );
+
+    const chest =
+        projectPoint(
+            bot.x,
+            1.2,
+            bot.z
+        );
+
+    const head =
+        projectPoint(
+            bot.x,
+            2.2,
+            bot.z
+        );
+
+
+    if (
+        !feet ||
+        !chest ||
+        !head
+    ) {
+        return;
+    }
+
+
+    const height =
+        Math.abs(
+            feet.y - head.y
+        );
+
+
+    const width =
+        height * 0.35;
+
+
+    // corpo
+
+    ctx.fillStyle =
+        "#d33";
+
+    ctx.fillRect(
+        chest.x - width / 2,
+        chest.y,
+        width,
+        height * 0.45
+    );
+
+
+    // cabeça
+
+    const headSize =
+        height * 0.18;
+
+    ctx.fillStyle =
+        "#f0b090";
+
+    ctx.fillRect(
+        head.x - headSize / 2,
+        head.y - headSize / 2,
+        headSize,
+        headSize
+    );
+
+
+    // pernas
+
+    ctx.fillStyle =
+        "#3344aa";
+
+    ctx.fillRect(
+        feet.x - width * 0.45,
+        chest.y + height * 0.42,
+        width * 0.35,
+        height * 0.45
+    );
+
+    ctx.fillRect(
+        feet.x + width * 0.1,
+        chest.y + height * 0.42,
+        width * 0.35,
+        height * 0.45
+    );
+
+
+    // HP
+
+    ctx.fillStyle = "black";
+
+    ctx.fillRect(
+        chest.x - width / 2,
+        head.y - 12,
+        width,
+        4
+    );
+
+
+    ctx.fillStyle =
+        "#35ff35";
+
+    ctx.fillRect(
+        chest.x - width / 2,
+        head.y - 12,
+        width * (bot.hp / 100),
+        4
+    );
+
+}
+
+
+// ============================
+// LOOP
+// ============================
+
+function loop() {
+
+    updatePlayer();
+
+    render();
+
+    requestAnimationFrame(loop);
+
+}
+
+loop();
+
+</script>
 
 </body>
 </html>
