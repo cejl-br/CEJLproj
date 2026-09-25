@@ -1,14 +1,57 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu site</title>
+
+    <title>Estudantes Chat</title>
+
+    <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-    <h1>hey!</h1>
-    <p>test</p>
+    <div class="chat-container">
+
+        <header>
+            <h1>Estudantes Chat</h1>
+            <p>Converse com outros estudantes</p>
+        </header>
+
+        <main class="messages">
+
+            <div class="message">
+                <strong>João</strong>
+                <p>Oi, pessoal!</p>
+                <span>10:30</span>
+            </div>
+
+            <div class="message">
+                <strong>Maria</strong>
+                <p>Oi João 👋</p>
+                <span>10:31</span>
+            </div>
+
+        </main>
+
+        <div class="message-input">
+
+            <input
+                type="text"
+                id="messageInput"
+                placeholder="Digite uma mensagem..."
+            >
+
+            <button onclick="sendMessage()">
+                Enviar
+            </button>
+
+        </div>
+
+    </div>
+
+    <script src="app.js"></script>
 
 </body>
 </html>
